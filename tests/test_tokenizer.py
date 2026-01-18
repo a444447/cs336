@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-import resource
+# import resource
 import sys
 
 import psutil
@@ -19,6 +19,12 @@ MERGES_PATH = FIXTURES_PATH / "gpt2_merges.txt"
 def memory_limit(max_mem):
     def decorator(f):
         def wrapper(*args, **kwargs):
+            # 增加平台判断：如果是 Windows (win32)，直接运行原函数
+            if sys.platform == "win32":
+                return f(*args, **kwargs)
+
+            # 如果是 Linux/Unix 系统，则执行原来的资源限制逻辑
+            import resource 
             process = psutil.Process(os.getpid())
             prev_limits = resource.getrlimit(resource.RLIMIT_AS)
             resource.setrlimit(resource.RLIMIT_AS, (process.memory_info().rss + max_mem, -1))
@@ -26,13 +32,9 @@ def memory_limit(max_mem):
                 result = f(*args, **kwargs)
                 return result
             finally:
-                # Even if the function above fails (e.g., it exceeds the
-                # memory limit), reset the memory limit back to the
-                # previous limit so other tests aren't affected.
                 resource.setrlimit(resource.RLIMIT_AS, prev_limits)
 
         return wrapper
-
     return decorator
 
 
